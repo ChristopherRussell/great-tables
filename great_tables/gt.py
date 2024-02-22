@@ -428,7 +428,7 @@ def as_raw_html(gt: GT) -> str:
     return html_table
 
 
-def gtsave(gt: GT, filename: str, path: Optional[str] = None):
+def gtsave(gt: GT, filename: str, path: Optional[str] = None) -> None:
     """
     Save a gt table as an image file.
 
