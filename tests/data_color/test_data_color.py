@@ -13,6 +13,8 @@ from great_tables.data import exibble
 
 T_CellStyle = TypeVar("T_CellStyle", bound=CellStyle)
 
+T_CellStyle = TypeVar("T_CellStyle", bound=CellStyle)
+
 params_frames = [pytest.param(pd.DataFrame, id="pandas"), pytest.param(pl.DataFrame, id="polars")]
 
 
@@ -36,7 +38,7 @@ def get_first_style(obj: StyleInfo, cls: Type[T_CellStyle]) -> Type[T_CellStyle]
     raise KeyError(f"No style entry of type {cls} found.")
 
 
-def test_data_color_simple_df_snap(snapshot):
+def test_data_color_simple_df_snap(snapshot: str):
     df = pd.DataFrame(
         {
             "A": [1, 2, 3],
