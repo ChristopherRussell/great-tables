@@ -203,6 +203,23 @@ def get_row_to_color_flags(
 
 
 def _get_default_norm(data: pl.DataFrame | pd.DataFrame, row_filter: list[bool]) -> Normalize:
+    """
+    Get the default normalization for the data when no custom normalization is provided.
+
+    Compute the minimum and maximum values from the filtered data and create a Normalize object.
+
+    Parameters
+    ----------
+    data
+        The data as a pandas or polars DataFrame.
+    row_filter
+        A boolean list indicating which rows should be considered for normalization.
+
+    Returns
+    -------
+    Normalize
+        The resulting Normalize object.
+    """
     if isinstance(data, pl.DataFrame):
         subset = data.filter(row_filter)
         vmin = subset.min().min_horizontal()[0]
@@ -220,6 +237,28 @@ def _get_default_norm(data: pl.DataFrame | pd.DataFrame, row_filter: list[bool])
 
 
 def _handle_cmap_arg(cmap, reverse: bool = False) -> Colormap:
+    """
+    Handle the `cmap` argument and return a matplotlib Colormap.
+
+    If `cmap` is None, construct the default palette using matplotlib.
+    If `cmap` is a Colormap object, return it as is.
+    If `cmap` is a list of colors, create a ListedColormap using the default palette.
+    If `cmap` is a valid matplotlib colormap name, retrieve the corresponding Colormap.
+    If `reverse` is True, reverse the colormap.
+
+    Parameters
+    ----------
+    cmap
+        The colormap argument to handle. Can be None, a Colormap object, a list of colors,
+        or a valid matplotlib colormap name.
+    reverse
+        Whether to reverse the colormap. Default is False.
+
+    Returns
+    -------
+    Colormap
+        The resulting matplotlib Colormap object.
+    """
     if cmap is None:  # construct data_color's default palette with matplotlib
         colormap = ListedColormap(DEFAULT_PALETTE)
     elif isinstance(cmap, Colormap):
