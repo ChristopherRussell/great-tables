@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
 
 import pandas as pd
 import polars as pl
+import polars.selectors as cs
 from matplotlib import colormaps as mpl_colormaps
 from matplotlib.colors import Colormap, ListedColormap, Normalize, to_hex
 
@@ -25,9 +26,44 @@ def is_numeric_or_none(x: Any) -> bool:
     return x is None or is_numeric(x)
 
 
+def resolve_pandas_columns(
+    data_table: pd.DataFrame, columns: Union[str, List[str], None]
+) -> List[str]:
+    if isinstance(columns, str):
+        columns_resolved = [columns]
+    elif columns is None:
+        columns_resolved = data_table.columns.tolist()
+    else:
+        columns_resolved = columns
+    return columns_resolved
+
+
+def resolve_polars_columns(
+    data_table: pl.DataFrame, columns: Union[str, pl.Expr, List[Union[str, pl.Expr]], None]
+) -> tuple[pl.DataFrame, List[str]]:
+    if isinstance(columns, (str, pl.Expr)):
+        columns_resolved = [columns]
+    elif columns is None:
+        columns_resolved = data_table.columns
+    else:
+        columns_resolved = columns
+
+    columns_contains_polars_expr = any(map(lambda col: isinstance(col, pl.Expr), columns_resolved))
+
+    if columns_contains_polars_expr:
+        columns_resolved = cs.expand_selector(data_table, columns_resolved)
+        unexpected_columns = set(columns_resolved) - set(data_table.columns)
+        assert (
+            not unexpected_columns
+        ), f"When expanding columns, some had names that were not present in the original dataframe: {unexpected_columns}"
+        data_table = data_table.with_columns(columns)  # eval exprs, e.g. pl.col("a") * 2 rather "a"
+
+    return data_table, columns_resolved
+
+
 def data_color_mpl(
     self: GTSelf,
-    columns: Union[str, List[str], None] = None,
+    columns: str | pl.Expr | List[str | pl.Expr] | None = None,
     rows: Union[int, list[int], None] = None,
     cmap: Colormap | str | list[str] | None = None,
     norm: Normalize | Callable[[float], float] | None = None,
@@ -42,7 +78,8 @@ def data_color_mpl(
     Perform data cell colorization.
 
     - targeting: we can constrain which columns should receive the colorization treatment through
-    the `columns=` argument)
+    the `columns=` argument. For polars DataFrames, the `columns` argument also supports polars
+    expressions.
     - colormap: we can specify the colormap to use with the `cmap_name=` argument
     - normalization: we can specify the normalization function to use with the `norm=` argument,
     which is a mapping from the data to the domain of the colormap, i.e. [0, 1]
@@ -52,8 +89,8 @@ def data_color_mpl(
     Parameters
     ----------
     columns
-        The columns to target. Can either be a single column name or a series of column names
-        provided in a list.
+        The columns to target. Can either be a single column name, a single polars expression (for
+        polars DataFrames), or a list of column names and/or polars expressions provided in a list.
     rows
         The rows to target. Can either be a single row index or a series of row indices provided in a
         list.
@@ -85,6 +122,8 @@ def data_color_mpl(
         The GT object is returned. This is the same object that the method is called on so that we
         can facilitate method chaining.
     """
+    if not (0 <= alpha <= 1):
+        raise ValueError(f"Invalid alpha value provided ({alpha}). Alpha must be between 0 and 1.")
 
     # If no color is provided to `na_color`, use a light gray color as a default
     if na_color is None:
@@ -95,14 +134,12 @@ def data_color_mpl(
     colormap = _handle_cmap_arg(cmap, reverse=reverse)
 
     data_table = self._tbl_data
-    columns_resolved: List[str]
-
-    if isinstance(columns, str):
-        columns_resolved = [columns]
-    elif columns is None:
-        columns_resolved = data_table.columns
+    if isinstance(data_table, pd.DataFrame):
+        columns_resolved = resolve_pandas_columns(data_table, columns)
+    elif isinstance(data_table, pl.DataFrame):
+        data_table, columns_resolved = resolve_polars_columns(data_table, columns)
     else:
-        columns_resolved = columns
+        raise ValueError(f"Unsupported data table type: {type(data_table)}")
 
     rows_to_color = get_row_to_color_flags(rows, data_table)
 
