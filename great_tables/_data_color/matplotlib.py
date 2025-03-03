@@ -152,7 +152,7 @@ def data_color_mpl(
             )
 
     if norm is None:  # default normalization uses all data to min-max scale
-        data_subset = data_table[columns_resolved]
+        data_subset = data_table[list(columns_resolved)]
         norm = _get_default_norm(data_subset, rows_to_color)
 
     for col in columns_resolved:
